@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+	<head>
+    <title>Kestrogle</title>
+    <link rel='stylesheet' href='all.css'>
+    <link rel='stylesheet' href='index.css'>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<link rel="search" type="application/opensearchdescription+xml" title="Kestrogle" href="opensearch.xml" />
+		<meta content="Kestrogle" property="og:title" />
+    <meta name="description" content="A search engine that keeps you completely private. No more tracking from search engines like Google.">
+    <meta content="A search engine that keeps you completely private. No more tracking from search engines like Google." property="og:description" />
+    <meta content="https://search.kestron.software/" property="og:url" />
+    <meta content="https://search.kestron.software/favicon.ico" property="og:image" />
+    <meta content="#000000" data-react-helmet="true" name="theme-color" />
+	</head>
+	<body>
+		<img id="logo" class="center" src="kestrogle.png"><br>
+		<form class='tCenter' action='/search' autocomplete='off'>
+			<input placeholder='Search...' id='q' name='q'> <input type="button" value="🎙" onclick="getSpeech()" title="Use Speech Recognition to Search"> <input type="submit" value="Search"><br><br>
+			Safesearch: 
+			<select name='safesearch' onchange="safeExplanation()" id='safesearch'>
+				<option class="safesearch-safe" title="Scans every result for NSFW keywords">Safe</option>
+				<option class="safesearch-moderate" title="Only checks for specific websites we've blocked">Moderate</option>
+				<option class="safesearch-off" title="Nothing is blocked">Off</option>
+			</select>
+		</form>
+		<script src='footer.js'></script>
+		<script src='eastereggs.js'></script>
+		<script src='suggest.js'></script>
+		<script src='voice.js'></script>
+		<script>
+			
+			function getSpeech(){
+				listen(function(said){
+					said=said.toLowerCase();
+					said=said.replaceAll(".","");
+					said=said.replaceAll("?","");
+					said=said.replaceAll("!","");
+					said=said.replaceAll(",","");
+					document.getElementById("q").value=said.toLowerCase();
+				});
+			}
+		</script>
+	</body>
+</html>
