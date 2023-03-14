@@ -10,11 +10,29 @@ const { JSDOM } = require('jsdom');
 const ejs = require('ejs');
 const path = require('path');
 const fs = require('fs');
+const axios = require('axios');
+const tf = require('@tensorflow/tfjs-node');
+const nsfw = require('nsfwjs');
 let site = new express();
 site.use(express.static(path.join(__dirname + '/static')));
 site.listen(3000, () => {
 	console.log("Site running.");
 });
+async function classifyImgUnsafeness(imgLink) {
+  const pic = await axios.get(imgLink, {
+    responseType: 'arraybuffer',
+  })
+  const model = await nsfw.load();
+  const image = await tf.node.decodeImage(pic.data,3);
+  const predictions = await model.classify(image);
+  image.dispose();
+	const obj = predictions.reduce((acc, item) => {
+	  acc[item.className] = item.probability;
+	  return acc;
+	}, {});
+	
+  return obj;
+}
 function unSafe(lvl, txt) {
 	txt = txt.toLowerCase();
 	let removeResult = false;
@@ -111,7 +129,7 @@ async function getResults(engine, query) {
 		for (var i = 0; i < resultEls.length; i++) {
 			let title = engines[engine].getTitle ? engines[engine].getTitle(resultEls, i) : resultEls[i].querySelector(engines[engine].titleSelector).textContent,
 				url = engines[engine].getUrl ? engines[engine].getUrl(resultEls, i) : resultEls[i].querySelector(engines[engine].urlSelector).href,
-				description = engines[engine].getDescription ? engines[engine].getDescription(resultEls, i, DOM) : resultEls[i].querySelector(engines[engine].descriptionSelector).innerHTML,
+				description = "Error",
 				favi = "";
 			url = decodeURIComponent(url);
 			try {
@@ -406,7 +424,7 @@ site.get('/images', async (req, res) => {
 		return;
 	}
 	let Results = [];
-	await fetch("https://google.com/search?tbm=isch&query=" + query).then(d => d.text()).then(d => {
+	await fetch("https://google.com/search?tbm=isch&query=" + query).then(d => d.text()).then(async d => {
 		let googleImages = new JSDOM(d);
 		let results = googleImages.window.document.getElementsByClassName('e3goi');
 		let urls = [];
@@ -419,10 +437,21 @@ site.get('/images', async (req, res) => {
 			urls.push(innerHtml.split("/url?q=")[1].split("&amp;")[0]);
 		}
 		for (var i = 0; i < titles.length; i++) {
-			Results.push({ "suggestedBy": "<img src='google.png' width='20px'>", "title": titles[i], "img": imgs[i], "url": urls[i], "matchNum": 1 });
+			let unsafeness={};
+			try{
+				unsafeness=await classifyImgUnsafeness(imgs[i]);
+			}
+			catch(e){
+				console.log(imgs[i]);
+			}
+			if(unsafeness["Porn"]>15||unsafeness["Hentai"]>15||unsafeness["Sexy"]>15){
+				Results.push({"suggestedBy":"<img src='google.png' width='20px'>","title":"Flagged as NSFW","img":"dne.png","url":"https://search.kestron.software/","matchNum":50});
+				continue;
+			}
+			Results.push({ "suggestedBy": "<img src='google.png' width='20px'>", "title": titles[i]+" "+unsafeness["Porn"]+" "+unsafeness["Hentai"]+" "+unsafeness["Sexy"], "img": imgs[i], "url": urls[i], "matchNum": i });
 		}
 	});
-	await fetch("https://www.bing.com/images/search?q=" + query).then(d => d.text()).then(d => {
+	await fetch("https://www.bing.com/images/search?q=" + query).then(d => d.text()).then(async d => {
 		let bingImages = new JSDOM(d);
 		let urls = [];
 		let imgs = [];
@@ -434,6 +463,18 @@ site.get('/images', async (req, res) => {
 			imgs.push(results[i].getElementsByClassName("mimg")[0].src);
 		}
 		for (var i = 0; i < titles.length; i++) {
+			console.log(titles[i]);
+			let unsafeness={};
+			try{
+				unsafeness=await classifyImgUnsafeness(imgs[i]);
+			}
+			catch(e){
+				console.log(imgs[i]);
+			}
+			if(unsafeness["Porn"]>15||unsafeness["Hentai"]>15||unsafeness["Sexy"]>15){
+				Results.push({"suggestedBy":"<img src='bing.png' width='20px'>","title":"Flagged as NSFW","img":"dne.png","url":"https://search.kestron.software/","matchNum":50});
+				continue;
+			}
 			if (imgs[i] !== undefined && imgs[i] !== null && imgs[i].length > 0) {
 				Results.push({ "suggestedBy": "<img src='bing.png' width='20px'>", "title": titles[i], "img": imgs[i], "url": urls[i], "matchNum": 1 });
 			}
